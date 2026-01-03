@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Calendar, Users, FileText, Download } from 'lucide-react';
+import { Search, Calendar, FileText, Download } from 'lucide-react';
 import NotificationBell from '@/components/NotificationBell';
 
 interface PayrollRecord {
@@ -32,12 +32,7 @@ export default function PayrollPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchUser();
-    fetchPayrollRecords();
-  }, []);
-
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     try {
       const response = await fetch('/api/auth/me');
       if (response.ok) {
@@ -50,24 +45,27 @@ export default function PayrollPage() {
       } else {
         router.push('/auth/login');
       }
-    } catch (error) {
+    } catch {
       router.push('/auth/login');
     }
-  };
+  }, [router]);
 
-  const fetchPayrollRecords = async () => {
+  const fetchPayrollRecords = useCallback(async () => {
     try {
       const response = await fetch('/api/payroll/me');
       if (response.ok) {
         const data = await response.json();
         setPayrollRecords(data);
       }
-    } catch (error) {
-      console.error('Failed to fetch payroll records:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchUser();
+    fetchPayrollRecords();
+  }, [fetchUser, fetchPayrollRecords]);
 
   const formatCurrency = (amount: string) => {
     return new Intl.NumberFormat('en-IN', {
@@ -90,13 +88,41 @@ export default function PayrollPage() {
     return `${start.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })} - ${end.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}`;
   };
 
+  const filteredRecords = payrollRecords.filter(record =>
+    formatPayPeriod(record.payPeriodStart, record.payPeriodEnd).toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   const getStatusColor = (status: string) => {
     return 'text-green-600 bg-green-100';
   };
 
-  const filteredRecords = payrollRecords.filter(record =>
-    formatPayPeriod(record.payPeriodStart, record.payPeriodEnd).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleViewPayslip = (payslipUrl: string | null, payrollId: string) => {
+    if (payslipUrl) {
+      // For now, open in new tab. In future, this could open a modal
+      window.open(payslipUrl, '_blank');
+    }
+  };
+
+  const handleDownloadPayslip = async (payslipUrl: string | null, payrollId: string) => {
+    if (!payslipUrl) return;
+    
+    try {
+      const response = await fetch(payslipUrl);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const link = window.document.createElement('a') as HTMLAnchorElement;
+        link.href = url;
+        link.download = `payslip_${payrollId}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch {
+      console.error('Failed to download payslip');
+    }
+  };
 
   if (loading) {
     return (
@@ -260,14 +286,27 @@ export default function PayrollPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {record.payslipUrl && (
-                            <button
-                              onClick={() => window.open(record.payslipUrl, '_blank')}
-                              className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
-                            >
-                              <Download className="h-4 w-4" />
-                              <span>Download</span>
-                            </button>
+                          {record.payslipUrl ? (
+                            <div className="flex items-center space-x-2">
+                              <button
+                                onClick={() => handleViewPayslip(record.payslipUrl, record.id)}
+                                className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                                title="View Payslip"
+                              >
+                                <FileText className="h-4 w-4" />
+                                <span>View</span>
+                              </button>
+                              <button
+                                onClick={() => handleDownloadPayslip(record.payslipUrl, record.id)}
+                                className="text-green-600 hover:text-green-900 flex items-center space-x-1"
+                                title="Download Payslip"
+                              >
+                                <Download className="h-4 w-4" />
+                                <span>Download</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-gray-400">Not Available</span>
                           )}
                         </td>
                       </tr>
