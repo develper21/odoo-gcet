@@ -2,18 +2,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { payrolls, users } from '@/lib/db/schema';
 import { eq, and, desc } from 'drizzle-orm';
-import { auth } from '@/lib/auth';
+import { getAuthCookie, verifyToken } from '@/lib/auth';
+import { createPayrollNotification } from '@/lib/notifications';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    const token = await getAuthCookie();
     
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!token) {
+      return NextResponse.json(
+        { error: 'No authentication token found' },
+        { status: 401 }
+      );
+    }
+
+    const payload = verifyToken(token);
+    
+    if (!payload) {
+      return NextResponse.json(
+        { error: 'Invalid token' },
+        { status: 401 }
+      );
     }
 
     // Check if user is admin or HR
-    if (session.user.role !== 'admin' && session.user.role !== 'hr') {
+    if (payload.role !== 'admin' && payload.role !== 'hr') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -52,21 +65,32 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
+    const token = await getAuthCookie();
     
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!token) {
+      return NextResponse.json(
+        { error: 'No authentication token found' },
+        { status: 401 }
+      );
+    }
+
+    const payload = verifyToken(token);
+    
+    if (!payload) {
+      return NextResponse.json(
+        { error: 'Invalid token' },
+        { status: 401 }
+      );
     }
 
     // Check if user is admin or HR
-    if (session.user.role !== 'admin' && session.user.role !== 'hr') {
+    if (payload.role !== 'admin' && payload.role !== 'hr') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const body = await request.json();
     const { userId, payPeriodStart, payPeriodEnd, grossSalary, totalDeductions, netSalary, payableDays } = body;
 
-    // Validate required fields
     if (!userId || !payPeriodStart || !payPeriodEnd || !grossSalary || !totalDeductions || !netSalary || !payableDays) {
       return NextResponse.json(
         { error: 'Missing required fields' },
@@ -99,9 +123,14 @@ export async function POST(request: NextRequest) {
         total_deductions: totalDeductions.toString(),
         net_salary: netSalary.toString(),
         payable_days: parseInt(payableDays),
-        generated_by: session.user.id,
+        generated_by: payload.userId,
       })
       .returning();
+
+    // Create notification for employee
+    if (newPayroll.length > 0) {
+      await createPayrollNotification(userId, newPayroll[0].id);
+    }
 
     return NextResponse.json(newPayroll[0], { status: 201 });
   } catch (error) {
