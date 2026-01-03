@@ -128,11 +128,15 @@ export async function POST(request: NextRequest) {
       .returning();
 
     // Create notification for employee
+    let toastData = null;
     if (newPayroll.length > 0) {
-      await createPayrollNotification(userId, newPayroll[0].id);
+      toastData = await createPayrollNotification(userId, newPayroll[0].id);
     }
 
-    return NextResponse.json(newPayroll[0], { status: 201 });
+    return NextResponse.json({
+      payroll: newPayroll[0],
+      toast: toastData
+    }, { status: 201 });
   } catch (error) {
     console.error('Error creating payroll:', error);
     return NextResponse.json(
