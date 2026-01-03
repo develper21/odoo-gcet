@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { User, Mail, Phone, Building, Users, Calendar, Edit, Briefcase } from 'lucide-react';
 import FileUpload from '@/components/FileUpload';
 import DocumentList from '@/components/DocumentList';
@@ -57,11 +58,8 @@ export default function EmployeeProfilePage() {
   // Initialize toast listener
   useToastListener();
 
-  useEffect(() => {
-    fetchEmployee();
-  }, [params.id]);
-
   const fetchEmployee = async () => {
+    setLoading(true);
     try {
       const response = await fetch(`/api/users/${params.id}`);
       if (response.ok) {
@@ -74,6 +72,10 @@ export default function EmployeeProfilePage() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchEmployee();
+  }, [params.id]);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('en-IN', {
@@ -103,7 +105,7 @@ export default function EmployeeProfilePage() {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        await response.json();
         // Trigger toast event
         window.dispatchEvent(new CustomEvent('showToast', {
           detail: {
@@ -143,7 +145,7 @@ export default function EmployeeProfilePage() {
       });
 
       if (response.ok) {
-        const data = await response.json();
+        await response.json();
         // Trigger toast event
         window.dispatchEvent(new CustomEvent('showToast', {
           detail: {
@@ -257,9 +259,11 @@ export default function EmployeeProfilePage() {
                   <div className="flex items-center space-x-4 mb-6">
                     <div className="h-20 w-20 rounded-full bg-gray-300 flex items-center justify-center">
                       {employee.profilePictureUrl ? (
-                        <img
+                        <Image
                           src={employee.profilePictureUrl}
                           alt={`${employee.firstName} ${employee.lastName}`}
+                          width={80}
+                          height={80}
                           className="h-20 w-20 rounded-full"
                         />
                       ) : (
@@ -375,7 +379,7 @@ export default function EmployeeProfilePage() {
                       <div className="bg-gray-50 rounded-lg p-6">
                         <h3 className="text-lg font-semibold text-gray-900 mb-4">My interests and hobbies</h3>
                         <p className="text-gray-600">
-                          Outside of work, I enjoy reading, hiking, and exploring new technologies. I'm also passionate about
+                          Outside of work, I enjoy reading, hiking, and exploring new technologies. I&apos;m also passionate about
                           mentoring young professionals and contributing to community initiatives.
                         </p>
                       </div>
