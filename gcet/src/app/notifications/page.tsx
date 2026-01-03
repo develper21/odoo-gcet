@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Search, Bell, Check, X, Clock, CheckCircle, XCircle, AlertCircle, Filter } from 'lucide-react';
+import { Search, Bell, Clock, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
 
 interface Notification {
   id: string;
@@ -16,7 +15,6 @@ interface Notification {
 }
 
 export default function NotificationsPage() {
-  const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
